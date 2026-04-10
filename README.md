@@ -1,7 +1,8 @@
 # NewsLens
 
 **CIS 4190/5190 Applied Machine Learning — Spring 2026 Final Project**  
-Project B: News Source Classification (Fox News vs. NBC News)
+Project B: News Source Classification (Fox News vs. NBC News)  
+**Group ID:** 57
 
 ## Team
 
@@ -99,6 +100,23 @@ uv run python eval_project_b.py \
 
 Runs on **Apple Silicon (M4)** via PyTorch MPS backend.  
 The TF-IDF baseline trains on CPU in seconds. Future transformer fine-tuning will use MPS automatically.
+
+## Leaderboard Submission
+
+Leaderboard: [cis4190/NewsHeadlineClassifier](https://huggingface.co/spaces/cis4190/NewsHeadlineClassifier)
+
+Upload the following three files in the **Student Submissions** tab:
+
+| Field | Value |
+|-------|-------|
+| Group ID | `57` |
+| Alias | `newslens` (or any team nickname) |
+| State Dict | `models/tfidf_logreg.pt` |
+| model.py | `model.py` |
+| preprocess.py | `preprocess.py` |
+
+Evaluation runs on `url_val` and `url_val16k` datasets and reports accuracy + inference time.  
+Check submission status and failed runs under the **Submission Status** tab using Group ID `57`.
 
 ## Submission Deadline
 

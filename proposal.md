@@ -3,7 +3,9 @@
 
 **Course:** CIS 4190/5190 Applied Machine Learning — Spring 2026  
 **Submission Deadline:** May 6, 2026  
-**Team Size:** 3 members
+**Team Size:** 3 members  
+**Group ID:** 57  
+**Leaderboard:** [cis4190/NewsHeadlineClassifier](https://huggingface.co/spaces/cis4190/NewsHeadlineClassifier)
 
 ---
 
