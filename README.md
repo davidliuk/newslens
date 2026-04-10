@@ -17,6 +17,48 @@ Binary text classification: given a news headline, predict whether it came from 
 
 Baseline: TF-IDF + Logistic Regression — 66.49% accuracy. We aim to exceed this with fine-tuned transformer models.
 
+## Dataset
+
+Hosted on Hugging Face: [SGavin/CIS5190_NewsSource](https://huggingface.co/datasets/SGavin/CIS5190_NewsSource)
+
+| Property | Value |
+|----------|-------|
+| Total rows | 3,801 |
+| Split | `train` only |
+| Labels | `fox` / `nbc` |
+| Columns | `news_source`, `headline`, `url` |
+| Headline length | 22–238 characters |
+
+### Load with `datasets`
+
+```python
+from datasets import load_dataset
+
+ds = load_dataset("SGavin/CIS5190_NewsSource")
+df = ds["train"].to_pandas()
+# df columns: news_source, headline, url
+```
+
+### Load with `pandas`
+
+```python
+import pandas as pd
+
+df = pd.read_csv(
+    "hf://datasets/SGavin/CIS5190_NewsSource/data/train-00000-of-00001.parquet"
+)
+# or via the Hugging Face hub:
+# df = pd.read_parquet("hf://datasets/SGavin/CIS5190_NewsSource/data/train-00000-of-00001.parquet")
+```
+
+### Label encoding
+
+The leaderboard uses numeric labels: `fox` → `0`, `nbc` → `1`.
+
+```python
+df["label"] = df["news_source"].map({"fox": 0, "nbc": 1})
+```
+
 ## Repository Structure
 
 ```
