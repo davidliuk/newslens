@@ -3,7 +3,7 @@ Train the baseline TF-IDF + Logistic Regression model on the HuggingFace dataset
 and save weights to models/tfidf_logreg.pt.
 
 Usage:
-    python src/train.py
+    uv run python src/train.py
 """
 import sys
 import os
@@ -11,6 +11,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import torch
 from datasets import load_dataset
+
+# ── Device detection (MPS on Apple Silicon, CUDA on Linux, else CPU) ──────────
+if torch.backends.mps.is_available():
+    DEVICE = torch.device("mps")
+elif torch.cuda.is_available():
+    DEVICE = torch.device("cuda")
+else:
+    DEVICE = torch.device("cpu")
+print(f"Device: {DEVICE}")
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 

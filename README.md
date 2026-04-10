@@ -80,8 +80,25 @@ newslens/
 ## Setup
 
 ```bash
-pip install -r requirements.txt
+# Install uv if needed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create venv and install all dependencies
+uv sync
+
+# Train baseline model
+uv run python src/train.py
+
+# Local evaluation
+uv run python eval_project_b.py \
+  --model model.py --preprocess preprocess.py \
+  --csv data/processed/val.csv --weights models/tfidf_logreg.pt
 ```
+
+## Hardware
+
+Runs on **Apple Silicon (M4)** via PyTorch MPS backend.  
+The TF-IDF baseline trains on CPU in seconds. Future transformer fine-tuning will use MPS automatically.
 
 ## Submission Deadline
 
