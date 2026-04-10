@@ -1,21 +1,30 @@
-import torch
-from typing import Any, List, Tuple
+import pandas as pd
+from typing import List, Tuple
 
 
-def prepare_data(path: str) -> Tuple[torch.Tensor, torch.Tensor]:
+def prepare_data(path: str) -> Tuple[List[str], List[int]]:
     """
-    Template preprocessing for leaderboard.
+    Load a news headlines CSV and return (headlines, labels).
 
-    Requirements:
-    - Must read the provided data path at `path`.
-    - Must return a tuple (X, y):
-        X: a list of model-ready inputs (these must match what your model expects in predict(...))
-        y: a list of ground-truth labels aligned with X (same length)
+    Expected CSV columns: 'headline', 'news_source' (fox/nbc)
+    Also accepts a pre-encoded 'label' column (0/1) if present.
 
-    Notes:
-    - The evaluation backend will call this function with the shared validation data
-    - Ensure the output format (types, shapes) of X matches your model's predict(...) inputs.
+    Returns:
+        X: list of headline strings
+        y: list of int labels  (fox=0, nbc=1)
     """
-    raise NotImplementedError("Implement prepare_data(csv_path) -> (X, y).")
+    df = pd.read_csv(path)
 
+    if "headline" not in df.columns:
+        raise ValueError(f"CSV at '{path}' must have a 'headline' column. Found: {list(df.columns)}")
 
+    X = df["headline"].fillna("").tolist()
+
+    if "label" in df.columns:
+        y = df["label"].astype(int).tolist()
+    elif "news_source" in df.columns:
+        y = df["news_source"].map({"fox": 0, "nbc": 1}).astype(int).tolist()
+    else:
+        raise ValueError(f"CSV at '{path}' must have a 'news_source' or 'label' column.")
+
+    return X, y
