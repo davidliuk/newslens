@@ -40,26 +40,32 @@ class Model(nn.Module):
 
     # ------------------------------------------------------------------
     # sklearn pipeline persistence via torch-compatible state_dict
+    #
+    # The leaderboard evaluator shape-checks tensors before passing them to
+    # load_state_dict, so pipeline_bytes must always be the same size.
+    # We use a fixed 5MB padded buffer and store the real size separately.
     # ------------------------------------------------------------------
+
+    _BUF_SIZE = 5 * 1024 * 1024  # 5MB — well above any realistic sklearn pipeline
 
     def state_dict(self, **kwargs):
         buf = io.BytesIO()
         pickle.dump(self.pipeline, buf)
-        pipeline_bytes = torch.frombuffer(bytearray(buf.getvalue()), dtype=torch.uint8)
+        data = buf.getvalue()
+        size = len(data)
+        assert size <= self._BUF_SIZE, f"Pipeline too large: {size} bytes > {self._BUF_SIZE}"
+        padded = bytearray(data) + bytearray(self._BUF_SIZE - size)
         return {
-            "pipeline_bytes": pipeline_bytes,
-            "fitted": torch.tensor(int(self._fitted)),
+            "pipeline_bytes": torch.frombuffer(padded, dtype=torch.uint8).clone(),
+            "pipeline_size": torch.tensor(size, dtype=torch.long),
         }
 
     def load_state_dict(self, state_dict, strict: bool = True):
-        if "pipeline_bytes" in state_dict:
-            data = state_dict["pipeline_bytes"]
-            if isinstance(data, torch.Tensor):
-                data = data.numpy().tobytes()
+        if "pipeline_bytes" in state_dict and "pipeline_size" in state_dict:
+            size = int(state_dict["pipeline_size"].item())
+            data = state_dict["pipeline_bytes"][:size].numpy().tobytes()
             self.pipeline = pickle.loads(data)
-        if "fitted" in state_dict:
-            val = state_dict["fitted"]
-            self._fitted = bool(val.item() if isinstance(val, torch.Tensor) else val)
+            self._fitted = True
 
     # ------------------------------------------------------------------
     # Training (called from src/train.py, not by the evaluator)
