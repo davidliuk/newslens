@@ -1,0 +1,17 @@
+requests
+beautifulsoup4
+pandas
+numpy
+scikit-learn
+xgboost
+torch
+transformers
+datasets
+accelerate
+spacy
+nltk
+shap
+matplotlib
+seaborn
+tqdm
+jupyter
