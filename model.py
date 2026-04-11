@@ -9,7 +9,7 @@ import torch.nn.functional as F
 # ── Hyperparameters ───────────────────────────────────────────────────────────
 PAD_IDX   = 0
 UNK_IDX   = 1
-EMBED_DIM    = 64
+EMBED_DIM    = 100  # matches GloVe 6B 100d
 NUM_FILTERS  = 128
 KERNEL_SIZES = [2, 3, 4, 5]
 MAX_LEN      = 40

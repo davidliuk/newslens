@@ -17,6 +17,7 @@ from sklearn.model_selection import train_test_split
 import pandas as pd
 
 from model import Model
+from src.glove import load_glove
 
 # ── Device ────────────────────────────────────────────────────────────────────
 if torch.backends.mps.is_available():
@@ -56,6 +57,11 @@ pd.DataFrame({"headline": X_val, "label": y_val}).to_csv("data/processed/val.csv
 model = Model()
 model.build_vocab(X_train, min_freq=2)
 print(f"Vocab size: {len(model.word2idx)}")
+
+# ── GloVe initialisation ──────────────────────────────────────────────────────
+glove_matrix = load_glove(model.word2idx)          # (vocab, 100) float32
+model.embedding.weight.data = torch.tensor(glove_matrix)
+print("Embedding initialised with GloVe 6B 100d")
 
 # ── Encode ────────────────────────────────────────────────────────────────────
 X_train_t = model._encode(X_train)

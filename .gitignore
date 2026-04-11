@@ -23,6 +23,9 @@ data/raw/*.csv
 data/processed/
 !data/raw/url_only_data.csv
 
+# GloVe vectors — large files, download via src/glove.py
+data/glove/
+
 # Models — checkpoints can be large
 models/*.pt
 models/*.pkl
