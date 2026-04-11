@@ -16,7 +16,52 @@ Project B: News Source Classification (Fox News vs. NBC News)
 
 Binary text classification: given a news headline, predict whether it came from **Fox News** (0) or **NBC News** (1).
 
-Baseline: TF-IDF + Logistic Regression — 66.49% accuracy. We aim to exceed this with fine-tuned transformer models.
+## Model
+
+**TextCNN** — a convolutional neural network for short text classification (Kim 2014).
+
+```
+Headline text
+    │
+    ▼
+Tokenize (lowercase, strip punctuation)
+    │
+    ▼
+Embedding  [vocab=3858, dim=64]
+    │
+    ├─ Conv1d(k=2) → ReLU → GlobalMaxPool  →  128-d
+    ├─ Conv1d(k=3) → ReLU → GlobalMaxPool  →  128-d
+    ├─ Conv1d(k=4) → ReLU → GlobalMaxPool  →  128-d
+    └─ Conv1d(k=5) → ReLU → GlobalMaxPool  →  128-d
+                                                │
+                                           Concat  →  512-d
+                                                │
+                                          Dropout(0.6)
+                                                │
+                                         Linear(512→2)
+                                                │
+                                        fox=0  /  nbc=1
+```
+
+Each Conv1d branch captures n-gram patterns of a different width (bigrams through 5-grams). GlobalMaxPool picks the strongest signal regardless of position. The four branches are concatenated before classification.
+
+| Property | Value |
+|----------|-------|
+| Vocab size | 3,858 (min_freq=2) |
+| Embedding dim | 64 |
+| Conv filters | 128 per kernel |
+| Kernel sizes | 2, 3, 4, 5 |
+| Parameters | ~280K |
+| Optimizer | Adam (lr=5e-4, wd=1e-3) |
+| Regularization | Dropout 0.6, grad clip 1.0, early stopping |
+
+### Results
+
+| Model | Val Accuracy |
+|-------|-------------|
+| Baseline: TF-IDF (100 features) + LogReg | 66.49% |
+| Improved: TF-IDF (5k, bigrams) + LogReg | 79.1% |
+| **TextCNN (current)** | **81.3%** |
 
 ## Dataset
 
@@ -87,19 +132,18 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # Create venv and install all dependencies
 uv sync
 
-# Train baseline model
-uv run python src/train.py
+# Train TextCNN
+uv run python src/train_cnn.py
 
 # Local evaluation
 uv run python eval_project_b.py \
   --model model.py --preprocess preprocess.py \
-  --csv data/processed/val.csv --weights models/tfidf_logreg.pt
+  --csv data/processed/val.csv --weights models/text_cnn.pt
 ```
 
 ## Hardware
 
-Runs on **Apple Silicon (M4)** via PyTorch MPS backend.  
-The TF-IDF baseline trains on CPU in seconds. Future transformer fine-tuning will use MPS automatically.
+Runs on **Apple Silicon (M4)** via PyTorch MPS backend — auto-detected at training time.
 
 ## Leaderboard Submission
 
@@ -111,7 +155,7 @@ Upload the following three files in the **Student Submissions** tab:
 |-------|-------|
 | Group ID | `57` |
 | Alias | `newslens` (or any team nickname) |
-| State Dict | `models/tfidf_logreg.pt` |
+| State Dict | `models/text_cnn.pt` |
 | model.py | `model.py` |
 | preprocess.py | `preprocess.py` |
 

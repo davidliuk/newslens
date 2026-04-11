@@ -31,7 +31,7 @@ class Model(nn.Module):
 
     Architecture:
         Embedding → Conv1d (k=2,3,4,5) → ReLU → GlobalMaxPool
-        → Concat → Dropout(0.5) → Linear(512, 2)
+        → Concat → Dropout(0.6) → Linear(512, 2)
 
     state_dict layout (leaderboard-compatible):
         _vocab_bytes  : fixed 12MB uint8 tensor  — pickled {word2idx, emb_weight}
