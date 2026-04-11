@@ -18,16 +18,16 @@ Binary text classification: given a news headline, predict whether it came from 
 
 ## Model
 
-**TextCNN** — a convolutional neural network for short text classification (Kim 2014).
+**TextCNN** with GloVe 6B 100d pre-trained embeddings (Kim 2014).
 
 ```
 Headline text
     │
     ▼
-Tokenize (lowercase, strip punctuation)
+Tokenize  (lowercase, strip punctuation, split)
     │
     ▼
-Embedding  [vocab=3858, dim=64]
+Embedding  [vocab=3858, dim=100, init=GloVe 6B 100d]
     │
     ├─ Conv1d(k=2) → ReLU → GlobalMaxPool  →  128-d
     ├─ Conv1d(k=3) → ReLU → GlobalMaxPool  →  128-d
@@ -43,25 +43,32 @@ Embedding  [vocab=3858, dim=64]
                                         fox=0  /  nbc=1
 ```
 
-Each Conv1d branch captures n-gram patterns of a different width (bigrams through 5-grams). GlobalMaxPool picks the strongest signal regardless of position. The four branches are concatenated before classification.
+Each Conv1d branch captures n-gram patterns of a different width (bigrams through 5-grams).
+GlobalMaxPool picks the strongest signal regardless of position in the headline.
+Embeddings are initialised from GloVe and fine-tuned end-to-end.
 
 | Property | Value |
 |----------|-------|
-| Vocab size | 3,858 (min_freq=2) |
-| Embedding dim | 64 |
-| Conv filters | 128 per kernel |
+| Vocab size | 3,858 (min\_freq=2) |
+| Embedding | GloVe 6B 100d, fine-tuned |
+| GloVe coverage | ~82% of vocab |
+| Conv filters | 128 per kernel size |
 | Kernel sizes | 2, 3, 4, 5 |
-| Parameters | ~280K |
+| Parameters | ~330K |
 | Optimizer | Adam (lr=5e-4, wd=1e-3) |
-| Regularization | Dropout 0.6, grad clip 1.0, early stopping |
+| Regularization | Dropout 0.6, grad clip 1.0, early stopping (patience=10) |
 
-### Results
+### Experiment Results
 
 | Model | Val Accuracy |
 |-------|-------------|
-| Baseline: TF-IDF (100 features) + LogReg | 66.49% |
-| Improved: TF-IDF (5k, bigrams) + LogReg | 79.1% |
-| **TextCNN (current)** | **81.3%** |
+| Course baseline: TF-IDF (100 features) + LogReg | 66.49% |
+| TF-IDF (5k features, bigrams) + LogReg | 79.1% |
+| TextCNN — random init (EMBED=64) | 81.3% |
+| BiLSTM — single layer, CPU only† | 78.8% |
+| **TextCNN + GloVe 6B 100d (current)** | **82.8%** |
+
+†PyTorch LSTM on MPS (Apple Silicon) has a known bug; must run on CPU.
 
 ## Dataset
 
@@ -75,33 +82,11 @@ Hosted on Hugging Face: [SGavin/CIS5190_NewsSource](https://huggingface.co/datas
 | Columns | `news_source`, `headline`, `url` |
 | Headline length | 22–238 characters |
 
-### Load with `datasets`
-
 ```python
 from datasets import load_dataset
 
 ds = load_dataset("SGavin/CIS5190_NewsSource")
 df = ds["train"].to_pandas()
-# df columns: news_source, headline, url
-```
-
-### Load with `pandas`
-
-```python
-import pandas as pd
-
-df = pd.read_csv(
-    "hf://datasets/SGavin/CIS5190_NewsSource/data/train-00000-of-00001.parquet"
-)
-# or via the Hugging Face hub:
-# df = pd.read_parquet("hf://datasets/SGavin/CIS5190_NewsSource/data/train-00000-of-00001.parquet")
-```
-
-### Label encoding
-
-The leaderboard uses numeric labels: `fox` → `0`, `nbc` → `1`.
-
-```python
 df["label"] = df["news_source"].map({"fox": 0, "nbc": 1})
 ```
 
@@ -111,16 +96,20 @@ df["label"] = df["news_source"].map({"fox": 0, "nbc": 1})
 newslens/
 ├── data/
 │   ├── raw/              # url_only_data.csv (3,815 article URLs)
-│   └── processed/        # cleaned train/val/test CSVs (git-ignored)
-├── notebooks/            # EDA, scraping, and experiment notebooks
-├── src/                  # reusable utility modules
-├── models/               # saved checkpoints (git-ignored)
-├── figures/              # plots and charts for the report
-├── model.py              # leaderboard submission: Model class
-├── preprocess.py         # leaderboard submission: prepare_data()
-├── eval_project_b.py     # course-provided evaluation script
-├── proposal.md           # project proposal
-└── requirements.txt
+│   ├── processed/        # train/val CSVs — git-ignored
+│   └── glove/            # GloVe vectors — git-ignored, auto-downloaded
+├── src/
+│   ├── glove.py          # GloVe download + embedding matrix loader
+│   ├── train_cnn.py      # TextCNN training (primary)
+│   ├── train_lstm.py     # BiLSTM experiment (comparison)
+│   └── train.py          # TF-IDF baseline training
+├── models/               # saved checkpoints — git-ignored
+├── notebooks/            # EDA and analysis notebooks
+├── figures/              # report plots
+├── model.py              # leaderboard: TextCNN Model class
+├── preprocess.py         # leaderboard: prepare_data()
+├── eval_project_b.py     # course-provided local evaluator
+└── proposal.md
 ```
 
 ## Setup
@@ -132,7 +121,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # Create venv and install all dependencies
 uv sync
 
-# Train TextCNN
+# Train TextCNN (GloVe ~822MB downloaded automatically on first run)
 uv run python src/train_cnn.py
 
 # Local evaluation
@@ -141,26 +130,30 @@ uv run python eval_project_b.py \
   --csv data/processed/val.csv --weights models/text_cnn.pt
 ```
 
+> GloVe vectors are only needed during training. The fine-tuned embeddings are
+> saved inside `models/text_cnn.pt` and are not required at inference time.
+
 ## Hardware
 
-Runs on **Apple Silicon (M4)** via PyTorch MPS backend — auto-detected at training time.
+Runs on **Apple Silicon (M4)** via PyTorch MPS backend — auto-detected at training time.  
+Training completes in under 30 seconds (TextCNN, ~30 epochs on MPS).
 
 ## Leaderboard Submission
 
 Leaderboard: [cis4190/NewsHeadlineClassifier](https://huggingface.co/spaces/cis4190/NewsHeadlineClassifier)
 
-Upload the following three files in the **Student Submissions** tab:
+Upload the following in the **Student Submissions** tab:
 
 | Field | Value |
 |-------|-------|
 | Group ID | `57` |
-| Alias | `newslens` (or any team nickname) |
+| Alias | `newslens` |
 | State Dict | `models/text_cnn.pt` |
 | model.py | `model.py` |
 | preprocess.py | `preprocess.py` |
 
 Evaluation runs on `url_val` and `url_val16k` datasets and reports accuracy + inference time.  
-Check submission status and failed runs under the **Submission Status** tab using Group ID `57`.
+Check submission status under the **Submission Status** tab using Group ID `57`.
 
 ## Submission Deadline
 
