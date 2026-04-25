@@ -17,6 +17,7 @@ MAX_LEN      = 40
 # Fixed-size buffer for (vocab dict + embedding weights) via pickle.
 # Vocab JSON + emb weights (15k × 128 × 4 B) ≈ 8 MB → 12 MB is safe.
 _VOCAB_BUF = 12 * 1024 * 1024
+_SKLEARN_BUF = 8 * 1024 * 1024
 
 
 def _tokenize(text: str) -> List[str]:
@@ -56,6 +57,7 @@ class Model(nn.Module):
         self.dropout = nn.Dropout(0.6)
         self.fc = nn.Linear(NUM_FILTERS * len(KERNEL_SIZES), 2)
         self._fitted = False
+        self.sklearn_model = None
 
         if weights_path and weights_path != "__no_weights__.pth":
             try:
@@ -102,6 +104,11 @@ class Model(nn.Module):
     # ── state_dict: vocab+emb in fixed buffer, conv/fc as normal tensors ──────
 
     def state_dict(self, **kwargs):
+        sk_data = pickle.dumps(self.sklearn_model) if self.sklearn_model is not None else b""
+        sk_size = len(sk_data)
+        assert sk_size <= _SKLEARN_BUF, f"sklearn model too large: {sk_size} B > {_SKLEARN_BUF} B"
+        sk_padded = bytearray(sk_data) + bytearray(_SKLEARN_BUF - sk_size)
+
         data = pickle.dumps({
             "word2idx":   self.word2idx,
             "emb_weight": self.embedding.weight.data.cpu().numpy(),
@@ -111,6 +118,8 @@ class Model(nn.Module):
         padded = bytearray(data) + bytearray(_VOCAB_BUF - size)
 
         sd = {
+            "_sklearn_bytes": torch.frombuffer(sk_padded, dtype=torch.uint8).clone(),
+            "_sklearn_size":  torch.tensor(sk_size, dtype=torch.long),
             "_vocab_bytes": torch.frombuffer(padded, dtype=torch.uint8).clone(),
             "_vocab_size":  torch.tensor(size, dtype=torch.long),
         }
@@ -121,6 +130,13 @@ class Model(nn.Module):
         return sd
 
     def load_state_dict(self, state_dict, strict: bool = True):
+        if "_sklearn_bytes" in state_dict and "_sklearn_size" in state_dict:
+            size = int(state_dict["_sklearn_size"].item())
+            if size > 0:
+                raw = state_dict["_sklearn_bytes"][:size].numpy().tobytes()
+                self.sklearn_model = pickle.loads(raw)
+                self._fitted = True
+
         if "_vocab_bytes" in state_dict and "_vocab_size" in state_dict:
             size = int(state_dict["_vocab_size"].item())
             raw  = state_dict["_vocab_bytes"][:size].numpy().tobytes()
@@ -131,10 +147,10 @@ class Model(nn.Module):
             self.embedding = nn.Embedding(vocab_size, EMBED_DIM, padding_idx=PAD_IDX)
             self.embedding.weight.data = torch.tensor(obj["emb_weight"])
 
-        nn_sd = {k: v for k, v in state_dict.items() if not k.startswith("_vocab")}
+        nn_sd = {k: v for k, v in state_dict.items() if not k.startswith("_vocab") and not k.startswith("_sklearn")}
         if nn_sd:
             super().load_state_dict(nn_sd, strict=False)
-        self._fitted = True
+            self._fitted = True
 
     # ── Inference ─────────────────────────────────────────────────────────────
 
@@ -144,6 +160,9 @@ class Model(nn.Module):
 
     def predict(self, batch: Iterable[Any]) -> List[int]:
         texts = [str(t) for t in batch]
+        if self.sklearn_model is not None:
+            return [int(pred) for pred in self.sklearn_model.predict(texts)]
+
         if not self._fitted:
             return [0] * len(texts)
         x = self._encode(texts)
