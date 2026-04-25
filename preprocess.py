@@ -28,7 +28,7 @@ def _headline_from_url(url: str) -> str:
         segment = re.sub(r"[^a-z0-9]+", " ", segment)
         return [tok for tok in segment.split() if tok and not tok.isdigit()]
 
-    drop = {"www", "foxnews", "nbcnews", "fox", "nbc", "news", "com"}
+    drop = {"www", "foxnews", "nbcnews", "fox", "nbc", "com"}
 
     cleaned_segments = [[word for word in clean_segment(seg) if word not in drop] for seg in segments]
     words = [word for segment_words in cleaned_segments for word in segment_words]

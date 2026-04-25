@@ -17,7 +17,7 @@ import pandas as pd
 import torch
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import FeatureUnion, make_pipeline
-from sklearn.svm import LinearSVC
+from sklearn.linear_model import SGDClassifier
 
 from model import Model
 from preprocess import _headline_from_url, _label_from_source_text
@@ -57,7 +57,7 @@ def main() -> None:
                 ),
             ]
         ),
-        LinearSVC(C=0.7),
+        SGDClassifier(loss="hinge", alpha=3e-4, max_iter=3000, tol=1e-4, random_state=1),
     )
 
     print(f"Training on {len(X)} URL-derived headlines")
