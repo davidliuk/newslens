@@ -50,9 +50,9 @@ def main() -> None:
                     "char",
                     TfidfVectorizer(
                         analyzer="char_wb",
-                        ngram_range=(3, 6),
+                        ngram_range=(2, 6),
                         min_df=1,
-                        max_features=80_000,
+                        max_features=120_000,
                         sublinear_tf=True,
                     ),
                 ),
