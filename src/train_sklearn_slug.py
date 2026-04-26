@@ -1,9 +1,10 @@
 """
-Train a URL-slug text classifier for leaderboard submissions.
+Train a headline-only classifier for leaderboard submissions.
 
-The leaderboard provides URL-only CSVs but rejects raw URLs/domains as features.
-This script mirrors preprocess.py by converting each URL path into readable text,
-then trains a compact TF-IDF + LinearSVC model saved inside model.pt.
+Train on the locally exported Hugging Face dataset:
+data/raw/news_source_headlines.csv with columns news_source, headline, url.
+Only the actual scraped headline is used as a model feature; urls are kept in
+the dataset for provenance and splitting, not for training.
 
 Usage:
     uv run python src/train_sklearn_slug.py
@@ -17,16 +18,16 @@ import pandas as pd
 import torch
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import FeatureUnion, make_pipeline
-from sklearn.linear_model import SGDClassifier
+from sklearn.svm import LinearSVC
 
 from model import Model
-from preprocess import _headline_from_url, _label_from_source_text
 
 
 def main() -> None:
-    df = pd.read_csv("data/raw/url_only_data.csv")
-    df["text"] = df["url"].fillna("").astype(str).map(_headline_from_url)
-    df["label"] = df["url"].fillna("").astype(str).map(_label_from_source_text)
+    df = pd.read_csv("data/raw/news_source_headlines.csv")
+    df = df.dropna(subset=["headline", "news_source"]).copy()
+    df["text"] = df["headline"].fillna("").astype(str)
+    df["label"] = df["news_source"].astype(str).str.lower().map({"fox": 0, "nbc": 1})
     df = df.dropna(subset=["text", "label"])
     df["label"] = df["label"].astype(int)
 
@@ -57,10 +58,10 @@ def main() -> None:
                 ),
             ]
         ),
-        SGDClassifier(loss="hinge", alpha=3e-4, max_iter=3000, tol=1e-4, random_state=1),
+        LinearSVC(C=3.0, max_iter=5000),
     )
 
-    print(f"Training on {len(X)} URL-derived headlines")
+    print(f"Training on {len(X)} scraped headlines")
     print(df["label"].value_counts().sort_index().to_string())
     pipeline.fit(X, y)
 
