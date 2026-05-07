@@ -27,10 +27,13 @@ data/processed/
 data/glove/
 
 # Models — checkpoints can be large
-models/*.pt
 models/*.pkl
 models/*.bin
 models/*.safetensors
+# keep final submission weights; ignore large intermediate checkpoints
+models/*.pt
+!models/model.pt
+!models/text_cnn.pt
 
 # Misc
 .DS_Store
